@@ -32,8 +32,11 @@ window.FUCKSLIDES_TITLE     = ${titleJson};
 window.FUCKSLIDES_DISABLED  = ${disabledJson};
 </script>`;
 
+  const escapeHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const playerTemplate = fs.readFileSync(path.join(pkgDir, 'player.html'), 'utf8');
-  const playerHtml     = playerTemplate.replace('</head>', configSnippet + '\n</head>');
+  const playerHtml     = playerTemplate
+    .replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(config.title || config.name || 'fuckSlides')}</title>`)
+    .replace('</head>', configSnippet + '\n</head>');
 
   // Inject slide manifest into each slide too (for standalone keyboard nav)
   function injectSlideManifest(html) {

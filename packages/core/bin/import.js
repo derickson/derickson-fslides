@@ -100,7 +100,7 @@ async function imageToHTML(imageBuffer, mimeType, client, index, total) {
       content: [
         {
           type:   'image',
-          source: { type: 'base64', media_type: mimeType, data: imageBuffer.toString('base64') },
+          source: { type: 'base64', media_type: mimeType, data: Buffer.from(imageBuffer).toString('base64') },
         },
         { type: 'text', text: 'Convert this slide to a complete fuckSlides HTML file.' },
       ],
