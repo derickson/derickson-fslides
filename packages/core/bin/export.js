@@ -108,11 +108,6 @@ module.exports = async function exportPresentation(config, outputPath) {
   // Read player template
   let html = fs.readFileSync(path.join(pkgDir, 'player.html'), 'utf8');
 
-  // Set browser tab title from config (mirrors serve.js behaviour)
-  const deckTitle = (config.title || config.name || 'Presentation')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${deckTitle}</title>`);
-
   function safeJson(val) {
     return JSON.stringify(val).replace(/<\/(script)/gi, '<\\/$1');
   }
@@ -127,8 +122,11 @@ window.FUCKSLIDES_EXPORT    = true;
 window.FUCKSLIDES_CONTENTS  = ${safeJson(slideContents)};
 </script>`;
 
+  const deckTitle = (config.title || config.name || 'Presentation')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
   html = html
-    .replace(/<title>[^<]*<\/title>/, `<title>${config.title || config.name || 'Presentation'}</title>`)
+    .replace(/<title>[\s\S]*?<\/title>/, `<title>${deckTitle}</title>`)
     .replace('</head>', snippet + '\n</head>');
 
   // Inline fuckslides.js and remove external src reference
