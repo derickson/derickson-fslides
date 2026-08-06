@@ -1,0 +1,68 @@
+# Staging: every PR that touches the site gets its own preview URL
+# (Cloudflare version preview on workers.dev), commented on the PR.
+# Note: previews exercise the app origin (landing, profiles, 404, docs);
+# the decks.fslides.dev hostname logic only runs on the real domains.
+name: Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "PR number to comment the preview URL on"
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build site
+        working-directory: packages/site
+        run: |
+          npm install
+          npm run sync-vendor
+          node ../core/bin/cli.js build _site
+
+      - name: Upload version preview
+        id: preview
+        working-directory: packages/site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          OUT=$(npx -y wrangler@4 versions upload 2>&1) || { echo "$OUT"; exit 1; }
+          echo "$OUT"
+          URL=$(echo "$OUT" | grep -oE 'https://[^ ]*workers\.dev[^ ]*' | head -1)
+          if [ -z "$URL" ]; then
+            # construct from the Version ID (wrangler omits the URL sometimes)
+            VID=$(echo "$OUT" | grep -oE 'Worker Version ID: [0-9a-f-]+' | grep -oE '[0-9a-f-]+$')
+            [ -n "$VID" ] && URL="https://${VID%%-*}-fslides-site.bahaaldine.workers.dev"
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = `${{ steps.preview.outputs.url }}` || '(no preview URL found — check the workflow log)';
+            const prNum = context.eventName === 'workflow_dispatch'
+              ? Number(`${{ github.event.inputs.pr }}`)
+              : context.issue.number;
+            const marker = '<!-- fslides-preview -->';
+            const body = `${marker}\n🎪 **Staging preview:** ${url}\n\n_Rebuilds on every push to this PR. App-origin pages only (landing, profiles, 404, docs)._`;
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo, issue_number: prNum, per_page: 100 });
+            const prev = comments.find(c => c.body.includes(marker));
+            if (prev) await github.rest.issues.updateComment({ ...context.repo, comment_id: prev.id, body });
+            else await github.rest.issues.createComment({ ...context.repo, issue_number: prNum, body });

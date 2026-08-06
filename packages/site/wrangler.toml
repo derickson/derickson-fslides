@@ -1,0 +1,34 @@
+name = "fslides-site"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+preview_urls = true
+
+routes = [
+  { pattern = "fslides.dev", custom_domain = true },
+  { pattern = "www.fslides.dev", custom_domain = true },
+  { pattern = "decks.fslides.dev", custom_domain = true },
+  # owner subdomains — reputation isolation, one subdomain per GitHub owner
+  { pattern = "*.fslides.dev/*", zone_name = "fslides.dev" }
+]
+
+[assets]
+directory = "_site"
+binding = "ASSETS"
+# the worker decides first — otherwise the assets layer serves app pages on
+# owner subdomains (it matches by path only, ignoring hostname)
+run_worker_first = true
+
+[vars]
+# abuse killswitch: comma-separated owners or owner/repo to disable
+DENYLIST = ""
+
+# player/runtime/logo vendored from packages/core (npm run sync-vendor)
+[[rules]]
+type = "Text"
+globs = ["**/*.html", "**/*.txt"]
+fallthrough = true
+
+[[rules]]
+type = "Data"
+globs = ["**/*.png"]
+fallthrough = true

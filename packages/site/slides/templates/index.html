@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>fslides — templates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/ui.css">
+  <style>
+    main { max-width: 1100px; margin: 0 auto; }
+    .tpl { margin-bottom: 48px; }
+    .tpl h2 { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--fg); margin-bottom: 3px; }
+    .tpl h2::before { content: '## '; color: var(--acc); font-weight: 400; }
+    .tpl .desc { color: var(--dim); font-size: 13px; margin-bottom: 10px; }
+    .tpl pre { display: inline-block; padding: 7px 14px; margin-bottom: 14px; }
+    .previews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .shot { position: relative; width: 100%; padding-bottom: 56.25%; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--panel); }
+    .shot:hover { border-color: var(--line2); }
+    .shot iframe { position: absolute; top: 0; left: 0; width: 1280px; height: 720px; border: none; transform-origin: top left; pointer-events: none; }
+    @media (max-width: 800px) { .previews { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="bar">
+    <a class="wordmark" href="/">fslides</a>
+    <nav>
+      <a href="/">deck</a>
+      <a href="/docs/">docs</a>
+      <a href="/templates/" class="here">templates</a>
+      <a href="/dashboard/">~/decks</a>
+      <a href="https://github.com/fslides/fslides">github</a>
+    </nav>
+  </header>
+  <main>
+    <div class="page-head"><h1>templates</h1></div>
+    <p class="page-sub">Designed starting points for <code>create</code> / <code>scaffold</code>. Every preview is live — real HTML, scaled down.</p>
+
+    <div class="tpl">
+      <h2>Charcoal</h2>
+      <p class="desc">Dark, confident, data-forward. Built for numbers. <strong style="color:var(--acc-hi)">The default.</strong></p>
+      <pre><span class="p">$</span> fslides scaffold my-deck</pre>
+      <div class="previews">
+        <div class="shot"><iframe src="/templates/charcoal/cover.html" loading="lazy" scrolling="no" tabindex="-1"></iframe></div>
+        <div class="shot"><iframe src="/templates/charcoal/stat.html" loading="lazy" scrolling="no" tabindex="-1"></iframe></div>
+        <div class="shot"><iframe src="/templates/charcoal/closing.html" loading="lazy" scrolling="no" tabindex="-1"></iframe></div>
+      </div>
+    </div>
+
+    <div class="tpl">
+      <h2>Paper</h2>
+      <p class="desc">Light editorial — warm paper, serif display type, one burnt-orange accent. For narrative talks.</p>
+      <pre><span class="p">$</span> fslides scaffold my-deck --template paper</pre>
+      <div class="previews">
+        <div class="shot"><iframe src="/templates/paper/cover.html" loading="lazy" scrolling="no" tabindex="-1"></iframe></div>
+        <div class="shot"><iframe src="/templates/paper/point.html" loading="lazy" scrolling="no" tabindex="-1"></iframe></div>
+        <div class="shot"><iframe src="/templates/paper/closing.html" loading="lazy" scrolling="no" tabindex="-1"></iframe></div>
+      </div>
+    </div>
+
+    <div class="tpl">
+      <h2>Minimal</h2>
+      <p class="desc">One blank-canvas title slide, zero opinions.</p>
+      <pre><span class="p">$</span> fslides scaffold my-deck --template minimal</pre>
+      <div class="previews">
+        <div class="shot"><iframe src="/templates/minimal-cover.html" loading="lazy" scrolling="no" tabindex="-1"></iframe></div>
+      </div>
+    </div>
+  </main>
+  <script>
+    function scaleShots() {
+      document.querySelectorAll('.shot').forEach(function (s) {
+        var f = s.querySelector('iframe');
+        f.style.transform = 'scale(' + (s.offsetWidth / 1280) + ')';
+      });
+    }
+    scaleShots();
+    window.addEventListener('resize', scaleShots);
+  </script>
+  <footer class="statusline">
+    <span class="mode">FSLIDES</span>
+    <span class="seg-item"><a href="https://github.com/fslides/fslides">github</a></span>
+    <span class="seg-item"><a href="https://www.npmjs.com/package/fslides">npm</a></span>
+    <span class="grow"></span>
+    <span class="seg-item">api <span id="sl-api" class="faint">…</span></span>
+    <span class="seg-item faint">v0.5</span>
+  </footer>
+  <script>
+    fetch('https://api.fslides.dev/healthz').then(r => {
+      document.getElementById('sl-api').textContent = r.ok ? 'ok' : 'down';
+      document.getElementById('sl-api').className = r.ok ? 'ok' : '';
+    }).catch(() => { document.getElementById('sl-api').textContent = 'down'; });
+  </script>
+<script src="/new-deck.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>fslides — docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/ui.css">
+  <style>
+    main { max-width: 720px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <header class="bar">
+    <a class="wordmark" href="/">fslides</a>
+    <nav>
+      <a href="/">deck</a>
+      <a href="/docs/" class="here">docs</a>
+      <a href="/templates/">templates</a>
+      <a href="/dashboard/">~/decks</a>
+      <a href="/agents.md">agents.md</a>
+      <a href="https://github.com/fslides/fslides">github</a>
+    </nav>
+  </header>
+  <main class="narrow prose">
+    <div class="page-head"><h1>docs</h1></div>
+    <p class="page-sub">Author, review, narrate, publish — decks that live in git. <span style="color:var(--faint)">(fslides is short for <em>f*ckslides</em> — the name is provocative on purpose; so is the bat.)</span></p>
+
+    <p class="page-sub">Abuse or phishing on a hosted deck? <a href="/-/report">Report it here</a> or email <a href="mailto:security@fslides.dev">security@fslides.dev</a>.</p>
+
+    <h2 id="quickstart">Quickstart</h2>
+    <pre><span class="p">$</span> curl -fsSL https://fslides.dev/install | sh   <span class="c"># or: npm install -g fslides</span>
+<span class="p">$</span> fslides scaffold my-deck   <span class="c"># repo + live URL + comments · charcoal template by default</span>
+<span class="p">$</span> cd my-deck &amp;&amp; npm install
+<span class="p">$</span> fslides serve              <span class="c"># author with live reload</span></pre>
+    <p><code>scaffold</code> needs the <a href="https://cli.github.com">GitHub CLI</a> authenticated (<code>gh auth login</code>). For a local-only deck without a repo, use <code>fslides create my-deck</code>.</p>
+    <p>Every push to <code>main</code> is live at <code>you.fslides.dev/your-deck</code> within a minute — rendered straight from the repo, no CI, no build step. That's the whole publishing story.</p>
+
+    <h2 id="slides">Writing slides</h2>
+    <p>A slide is a <strong>plain HTML file</strong> in <code>slides/</code>, designed on a fixed 1280×720 canvas. Any CSS, any JS, any library. Add the file, then register it in <code>fslides.config.js</code>:</p>
+    <pre>slides: [ 'cover.html', 'my-new-slide.html' ],
+labels: [ 'Cover',      'The Big Idea' ],</pre>
+    <p>Start from a designed <a href="/templates/">template</a>, or from scratch. The full slide skeleton and hard rules live in <a href="/agents.md">agents.md</a> — written for AI agents, equally correct for humans. Which hints at the fastest authoring path: <strong>point Claude (or any agent) at your deck repo</strong> and describe the slide you want. HTML in, HTML out — there's a packaged skill: <code>/plugin marketplace add fslides/fslides</code> in Claude Code.</p>
+
+    <h2 id="player">The player</h2>
+    <p><code>fslides serve</code> opens your deck in the player. Keyboard: <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>G</kbd> overview grid · <kbd>T</kbd> filmstrip · <kbd>N</kbd> notes · <kbd>V</kbd> play narration · <kbd>M</kbd> record · <kbd>K</kbd> comments · <kbd>F</kbd> present fullscreen.</p>
+    <p>Speaker notes live in <code>notes.json</code> and are editable in the Notes panel — they ship with the deck and feed the teleprompter.</p>
+
+    <h2 id="narration">Narration</h2>
+    <p>Click <strong>Record</strong> in the toolbar: audio or camera per slide, with a pop-out teleprompter reading your notes at eye level, live waveform, device pickers, and virtual backgrounds (blur or custom image — baked into the recording).</p>
+    <ul>
+      <li>Recordings land in <code>slides/recordings/</code> — commit and push like any file (scaffolded decks track them with <strong>Git LFS</strong> so re-takes don't bloat clones)</li>
+      <li>Viewers hit <strong>Play</strong> on the published deck; camera takes render in a draggable bubble, and playback auto-continues across slides</li>
+    </ul>
+
+    <h2 id="comments">Review &amp; comments</h2>
+    <p>Reviewers <strong>right-click any element</strong> on a slide — a headline, a chart, a block — and pin a comment thread to it. Drag-select to comment on a group. The Comments panel is a deck-wide inbox: click any thread to jump to its slide.</p>
+    <p>Underneath, threads are <strong>GitHub issues</strong> on your deck repo (one per slide) — permissioned, notifiable, readable forever without fslides. On published decks, commenting uses a one-popup GitHub sign-in; the <a href="https://github.com/apps/fslides">fslides GitHub App</a> (issues-only permission) is installed on the repos you choose during that popup.</p>
+    <div class="callout">Private repo? Comments work in <code>fslides serve</code> through your local <code>gh</code> auth with zero setup.</div>
+
+    <h2 id="commands">Command reference</h2>
+    <table>
+      <tr><th>Command</th><th>What it does</th></tr>
+      <tr><td><code>fslides serve</code></td><td>Local player: live reload, notes, narration recording, comments</td></tr>
+      <tr><td><code>fslides scaffold &lt;name&gt;</code></td><td>New deck as a GitHub repo — files, CI, Pages, comments wired</td></tr>
+      <tr><td><code>fslides create &lt;name&gt;</code></td><td>New local-only deck</td></tr>
+      <tr><td><code>fslides add-slide &lt;name&gt;</code></td><td>Scaffold one slide file</td></tr>
+      <tr><td><code>fslides build [dir]</code></td><td>Deployable static folder (what CI publishes)</td></tr>
+      <tr><td><code>fslides export [out.html]</code></td><td>Single self-contained HTML file</td></tr>
+      <tr><td><code>fslides pdf</code> / <code>pptx</code> / <code>gif</code></td><td>Format exports</td></tr>
+    </table>
+
+    <h2 id="contributing">Contributing to a deck</h2>
+    <pre><span class="p">$</span> git clone https://github.com/&lt;owner&gt;/&lt;deck&gt;.git &amp;&amp; cd &lt;deck&gt;
+<span class="p">$</span> npm install &amp;&amp; npm run serve</pre>
+    <ul>
+      <li>Install <code>git-lfs</code> (<code>brew install git-lfs</code>) to fetch narration recordings</li>
+      <li>Edit slides like code; open a PR; CI publishes on merge</li>
+    </ul>
+  </main>
+  <footer class="statusline">
+    <span class="mode">FSLIDES</span>
+    <span class="seg-item"><a href="https://github.com/fslides/fslides">github</a></span>
+    <span class="seg-item"><a href="https://www.npmjs.com/package/fslides">npm</a></span>
+    <span class="grow"></span>
+    <span class="seg-item">api <span id="sl-api" class="faint">…</span></span>
+    <span class="seg-item faint">v0.5</span>
+  </footer>
+  <script>
+    fetch('https://api.fslides.dev/healthz').then(r => {
+      document.getElementById('sl-api').textContent = r.ok ? 'ok' : 'down';
+      document.getElementById('sl-api').className = r.ok ? 'ok' : '';
+    }).catch(() => { document.getElementById('sl-api').textContent = 'down'; });
+  </script>
+<script src="/new-deck.js" defer></script>
+</body>
+</html>

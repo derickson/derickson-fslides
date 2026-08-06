@@ -6,10 +6,19 @@ const fs   = require('fs');
 
 const [,, cmd, ...args] = process.argv;
 
+// Deck manifest: fslides.config.js preferred, fuckslides.config.js legacy.
+function resolveConfigPath(cwd) {
+  for (const f of ['fslides.config.js', 'fuckslides.config.js']) {
+    const p = path.join(cwd, f);
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
 function loadConfig(cwd) {
-  const cfgPath = path.join(cwd, 'fuckslides.config.js');
-  if (!fs.existsSync(cfgPath)) {
-    console.error('❌  No fuckslides.config.js found. Run this from a presentation directory.');
+  const cfgPath = resolveConfigPath(cwd);
+  if (!cfgPath) {
+    console.error('❌  No fslides.config.js found. Run this from a presentation directory.');
     process.exit(1);
   }
   return require(cfgPath);
@@ -23,7 +32,7 @@ function getFlag(flag) {
 
 switch (cmd) {
   case 'create':
-    require('./create')(args[0]);
+    require('./create')(args[0], getFlag('--template'));
     break;
   case 'import':
     require('./import')(args);
@@ -40,6 +49,9 @@ switch (cmd) {
   case 'serve':
     require('./serve')(loadConfig(process.cwd()));
     break;
+  case 'hub':
+    require('./hub')(args[0]);
+    break;
   case 'export': {
     const outArg = args[0] && !args[0].startsWith('-') ? args[0] : undefined;
     require('./export')(loadConfig(process.cwd()), outArg ? path.join(process.cwd(), outArg) : undefined);
@@ -51,12 +63,18 @@ switch (cmd) {
   case 'publish':
     require('./publish')(loadConfig(process.cwd()));
     break;
+  case 'build':
+    require('./build')(loadConfig(process.cwd()), args[0] && !args[0].startsWith('-') ? args[0] : undefined);
+    break;
+  case 'scaffold':
+    require('./scaffold')(args[0], { private: args.includes('--private'), org: getFlag('--org'), template: getFlag('--template') });
+    break;
   default:
     console.log(`
   fuckSlides — no-bullshit HTML presentations
 
   Commands:
-    fuckslides create <name>          Scaffold a new presentation
+    fuckslides create <name>          Scaffold a new presentation (--template charcoal|paper)
     fuckslides import <file …>        Convert PDF or images to slides (requires ANTHROPIC_API_KEY)
     fuckslides serve                  Open presentation in browser with player
     fuckslides pdf                    Export all slides to PDF
@@ -64,6 +82,9 @@ switch (cmd) {
     fuckslides gif <slide>            Export a slide to animated GIF
     fuckslides export [output.html]   Bundle into a single self-contained HTML file
     fuckslides add-slide <name>       Add a new slide (--template title|stat|quote|split|bullets|cover)
-    fuckslides publish                Deploy to GitHub Pages
+    fuckslides publish                Deploy single-file export to gh-pages branch
+    fuckslides build [outDir]         Build a deployable folder (player + slides + assets)
+    fuckslides scaffold <name>        Create a GitHub repo for a new deck: files, CI to Pages, comments wired (--private, --org <org>)
+    fuckslides hub [path|github-url]  Serve all presentations from a hub manifest
 `);
 }

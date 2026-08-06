@@ -1,0 +1,65 @@
+# Issue-driven development: mention @claude in any issue or PR comment and
+# Claude Code runs here with repo access — implements on a branch, opens a
+# PR, answers in the thread. The issue body is the prompt; comments are the
+# iterations.
+name: Claude
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    # trust gate: only the owner/members/collaborators may invoke @claude —
+    # the action ALSO verifies write access, this just refuses earlier
+    if: |
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: write   # dispatch the preview workflow for auto-created PRs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+      # the action pushes a branch but only links to PR creation — open the
+      # PR automatically and dispatch the preview (GITHUB_TOKEN-created PRs
+      # don't fire pull_request workflows on their own)
+      - name: Open PR and trigger preview
+        if: success() && (github.event_name == 'issues' || (github.event_name == 'issue_comment' && !github.event.issue.pull_request))
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N="${{ github.event.issue.number }}"
+          BR=$(gh api "repos/$GITHUB_REPOSITORY/branches" --paginate --jq '.[].name' | grep "^claude/issue-$N-" | sort | tail -1 || true)
+          [ -z "$BR" ] && { echo "no branch for #$N — nothing to PR"; exit 0; }
+          AHEAD=$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$BR" --jq '.ahead_by')
+          [ "$AHEAD" = "0" ] && { echo "branch $BR has no commits ahead"; exit 0; }
+          PR=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$BR" --state open --json number --jq '.[0].number' || true)
+          if [ -z "$PR" ]; then
+            TITLE=$(gh issue view "$N" -R "$GITHUB_REPOSITORY" --json title --jq .title)
+            URL=$(gh pr create -R "$GITHUB_REPOSITORY" --head "$BR" --title "$TITLE" \
+              --body "$(printf 'Automated PR from the issue-driven pipeline.\n\nFixes #%s' "$N")")
+            PR=$(basename "$URL")
+            gh issue comment "$N" -R "$GITHUB_REPOSITORY" --body "🔀 Opened PR #$PR — staging preview incoming on the PR."
+          fi
+          gh workflow run preview.yml -R "$GITHUB_REPOSITORY" --ref "$BR" -f pr="$PR"

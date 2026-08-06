@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>fslides</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="/logo.png">
+  <style>
+    /* the profile IS the dashboard: public face for visitors, management
+       surface for the owner. Carries both palettes; default follows the
+       viewer's clock. */
+    :root, [data-theme="dark"] {
+      --bg: #0d0f14; --panel: #12151c; --panel2: #171b24; --line: rgba(255,255,255,0.09);
+      --fg: #e8eaf0; --dim: rgba(232,234,240,0.55); --faint: rgba(232,234,240,0.3);
+      --acc: #F05000; --acc-hi: #FF6A1A;
+    }
+    [data-theme="light"] {
+      --bg: #f6f5f2; --panel: #ffffff; --panel2: #efede8; --line: rgba(20,20,30,0.12);
+      --fg: #171922; --dim: rgba(23,25,34,0.6); --faint: rgba(23,25,34,0.35);
+      --acc: #E04800; --acc-hi: #F05000;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: var(--bg); }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif; -webkit-font-smoothing: antialiased;
+      background: var(--bg); color: var(--fg); min-height: 100vh;
+      display: flex; flex-direction: column;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none;
+      background-image: radial-gradient(color-mix(in srgb, var(--acc) 6%, transparent) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+    ::selection { background: var(--acc); color: #fff; }
+    a { color: inherit; text-decoration: none; }
+    code, .mono { font-family: 'JetBrains Mono', monospace; }
+
+    .bar {
+      display: flex; align-items: center; gap: 22px; padding: 0 22px; height: 52px;
+      border-bottom: 1px solid var(--line); background: var(--panel);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .wordmark { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1.05rem; display: inline-flex; align-items: center; gap: 10px; }
+    .wordmark .mark { width: 26px; height: 26px; border-radius: 6px; display: block; }
+    .wordmark .p { color: var(--acc); }
+    .wordmark .caret { display: inline-block; width: 8px; height: 15px; background: var(--acc); vertical-align: -2px; margin-left: 2px; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .bar nav { display: flex; gap: 18px; margin-left: auto; align-items: center; }
+    .bar nav a, .bar nav button.linkish {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.92rem; color: var(--dim);
+      background: none; border: none; cursor: pointer;
+    }
+    .bar nav a:hover, .bar nav button.linkish:hover { color: var(--acc); }
+    #whoami { display: none; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 0.92rem; color: var(--dim); }
+    #whoami img { width: 20px; height: 20px; border: 1px solid var(--line); }
+    #theme-btn {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.92rem; cursor: pointer;
+      background: none; border: 1px solid var(--line); color: var(--dim); padding: 5px 10px;
+    }
+    #theme-btn:hover { color: var(--acc); border-color: var(--acc); }
+
+    [hidden] { display: none !important; }
+    .wrap { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; padding: 40px 34px 70px; display: flex; gap: 44px; align-items: flex-start; }
+
+    /* left column — the human */
+    .who { width: 280px; flex-shrink: 0; position: sticky; top: 86px; }
+    .who img.avatar { width: 100%; aspect-ratio: 1; border: 1px solid var(--line); background: var(--panel2); display: block; }
+    .who h1 { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.02em; margin-top: 18px; }
+    .who .login { font-family: 'JetBrains Mono', monospace; font-size: 1.05rem; color: var(--acc); margin-top: 2px; }
+    .who .bio { font-size: 1.02rem; color: var(--dim); line-height: 1.55; margin-top: 12px; }
+    .who .meta { margin-top: 16px; display: flex; flex-direction: column; gap: 7px; }
+    .who .meta div { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--dim); }
+    .who .meta b { color: var(--fg); font-weight: 700; }
+    .who .gh {
+      display: inline-block; margin-top: 18px; font-family: 'JetBrains Mono', monospace; font-size: 0.92rem;
+      color: var(--dim); border: 1px solid var(--line); padding: 7px 12px;
+    }
+    .who .gh:hover { color: var(--acc); border-color: var(--acc); }
+    .who .gh::before { content: '[ '; color: var(--acc); } .who .gh::after { content: ' ]'; color: var(--acc); }
+
+    /* right column — the decks */
+    .decks { flex: 1; min-width: 0; }
+    .decks h2 { font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 700; padding-bottom: 12px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+    .decks h2::before { content: '## '; color: var(--acc); }
+    .decks h2 .count { color: var(--faint); font-weight: 400; }
+
+    .toolbar { display: none; align-items: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .toolbar input[type=search], .toolbar select {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.92rem; color: var(--fg);
+      background: var(--panel); border: 1px solid var(--line); padding: 7px 10px; outline: none;
+      appearance: none; -webkit-appearance: none; border-radius: 0;
+    }
+    .toolbar input[type=search] { flex: 1; min-width: 200px; max-width: 360px; }
+    .toolbar input[type=search]:focus, .toolbar select:focus { border-color: var(--acc); }
+    .toolbar input::placeholder { color: var(--faint); }
+    .seg { display: flex; border: 1px solid var(--line); }
+    .seg button {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; color: var(--dim);
+      background: none; border: none; padding: 7px 11px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    }
+    .seg button svg { width: 13px; height: 13px; }
+    .seg button.active { background: var(--acc); color: #fff; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    .card { border: 1px solid var(--line); background: var(--panel); display: block; transition: border-color .12s; }
+    .card:hover { border-color: var(--acc); }
+    .thumb { position: relative; width: 100%; padding-bottom: 56.25%; background: var(--panel2); overflow: hidden; }
+    .thumb iframe {
+      position: absolute; top: 0; left: 0; width: 1280px; height: 720px;
+      border: none; transform-origin: top left; pointer-events: none;
+    }
+    .card .info { padding: 13px 16px 14px; border-top: 1px solid var(--line); }
+    .card .head { display: flex; align-items: center; gap: 10px; }
+    .card .name { font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+    .card .name::before { content: '> '; color: var(--acc); }
+    .card .desc { font-size: 0.92rem; color: var(--dim); line-height: 1.45; margin-top: 6px; }
+    .card .foot {
+      display: flex; align-items: center; gap: 14px; margin-top: 12px;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--faint);
+      white-space: nowrap;
+    }
+    .card .foot .when { margin-left: auto; }
+    .chip {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--dim);
+      border: 1px solid var(--line); padding: 1px 6px;
+    }
+
+    .rows { display: flex; flex-direction: column; border: 1px solid var(--line); }
+    .row {
+      display: flex; align-items: center; gap: 12px; padding: 11px 15px;
+      border-bottom: 1px solid var(--line); background: var(--panel);
+      font-family: 'JetBrains Mono', monospace; font-size: 0.95rem;
+    }
+    .row:last-child { border-bottom: none; }
+    .row:hover { background: var(--panel2); }
+    .row .name { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row .name::before { content: '> '; color: var(--acc); }
+    .row .when { color: var(--faint); font-size: 0.82rem; flex-shrink: 0; }
+    .row::after { content: '↗'; color: var(--acc); }
+
+    .stats { display: inline-flex; gap: 13px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--faint); }
+    .stats span { display: inline-flex; gap: 5px; align-items: center; }
+    .stats svg { width: 13px; height: 13px; fill: currentColor; opacity: 0.75; flex-shrink: 0; }
+    .thumb.lock { display: flex; align-items: center; justify-content: center; padding-bottom: 0; aspect-ratio: 16/9;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--faint); }
+    .sharebtn {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--dim);
+      background: none; border: 1px solid var(--line); padding: 3px 9px; cursor: pointer; margin-left: auto;
+    }
+    .sharebtn:hover { color: var(--acc); border-color: var(--acc); }
+    #share-pop {
+      position: absolute; z-index: 40; width: 340px; background: var(--panel);
+      border: 1px solid var(--acc); padding: 16px; box-shadow: 0 14px 40px rgba(0,0,0,0.35);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    #share-pop h4 { font-size: 0.9rem; margin-bottom: 12px; }
+    #share-pop h4::before { content: '## '; color: var(--acc); }
+    #share-pop .linkrow { display: flex; gap: 6px; margin-bottom: 12px; }
+    #share-pop input { flex: 1; min-width: 0; font-family: inherit; font-size: 0.85rem; color: var(--fg);
+      background: var(--panel2); border: 1px solid var(--line); padding: 7px 9px; outline: none; }
+    #share-pop button.copy { font-family: inherit; font-size: 0.85rem; color: var(--acc); background: none;
+      border: 1px solid var(--line); padding: 7px 11px; cursor: pointer; white-space: nowrap; }
+    #share-pop button.copy:hover { border-color: var(--acc); }
+    #share-pop .hint { font-size: 0.85rem; color: var(--dim); line-height: 1.55; margin-bottom: 10px; }
+    #share-pop .hint b { color: var(--fg); }
+    #share-pop a { color: var(--acc); font-size: 0.85rem; }
+    #share-pop .people { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; max-height: 220px; overflow-y: auto; }
+    #share-pop .person { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--fg); }
+    #share-pop .person img { width: 20px; height: 20px; border: 1px solid var(--line); }
+    #share-pop .person .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #share-pop .person .pending { color: var(--faint); font-size: 0.75rem; }
+    #share-pop .person select, #share-pop .inviterow select {
+      font-family: inherit; font-size: 0.8rem; color: var(--fg); background: var(--panel2);
+      border: 1px solid var(--line); padding: 3px 6px; appearance: none; -webkit-appearance: none; border-radius: 0;
+    }
+    #share-pop .person .rm { color: var(--faint); background: none; border: none; cursor: pointer; font-size: 0.95rem; padding: 0 3px; }
+    #share-pop .person .rm:hover { color: var(--acc); }
+    #share-pop .inviterow { display: flex; gap: 6px; margin-bottom: 12px; }
+    #share-pop .inviterow input { flex: 1; min-width: 0; font-family: inherit; font-size: 0.85rem; color: var(--fg);
+      background: var(--panel2); border: 1px solid var(--line); padding: 6px 9px; outline: none; }
+    #share-pop .inviterow input:focus { border-color: var(--acc); }
+    #share-pop .inviterow button { font-family: inherit; font-size: 0.85rem; color: var(--acc); background: none;
+      border: 1px solid var(--line); padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+    #share-pop .inviterow button:hover { border-color: var(--acc); }
+    #share-pop .err { font-size: 0.8rem; color: #e5534b; margin-bottom: 8px; }
+    .state { font-family: 'JetBrains Mono', monospace; font-size: 1rem; color: var(--dim); padding: 40px 0; text-align: center; }
+    .state a { color: var(--acc); }
+    .state .big { font-size: 1.1rem; color: var(--fg); margin-bottom: 10px; }
+
+    .cta-btn {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.92rem; font-weight: 700; color: var(--acc-hi);
+      background: color-mix(in srgb, var(--acc) 12%, transparent); border: 1px solid var(--acc);
+      border-radius: 6px; padding: 7px 14px; cursor: pointer; white-space: nowrap; margin-left: auto;
+    }
+    .cta-btn:hover { background: color-mix(in srgb, var(--acc) 24%, transparent); color: var(--fg); }
+    #cta-menu {
+      position: absolute; z-index: 50; width: min(480px, 94vw); background: var(--panel);
+      border: 1px solid var(--acc); box-shadow: 0 18px 50px rgba(0,0,0,0.4); padding: 6px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    #cta-menu .head { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); padding: 8px 10px 6px; }
+    #cta-menu .row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; cursor: pointer; }
+    #cta-menu .row:hover { background: color-mix(in srgb, var(--acc) 10%, transparent); }
+    #cta-menu .cmd { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; color: var(--fg); }
+    #cta-menu .cmd::before { content: '$ '; color: var(--acc); }
+    #cta-menu .cmd.nodollar::before { content: ''; }
+    #cta-menu .lbl { font-size: 0.72rem; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0; }
+    #cta-menu .cpy { font-size: 0.75rem; color: var(--faint); flex-shrink: 0; }
+    #cta-menu .row.copied .cpy { color: #34D399; }
+
+    .statusline {
+      display: flex; align-items: center; height: 30px; border-top: 1px solid var(--line);
+      background: var(--panel); font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--dim);
+      padding: 0 14px; gap: 14px;
+    }
+    .statusline .mode { background: var(--acc); color: #fff; font-weight: 700; padding: 2px 8px; }
+    .statusline .right { margin-left: auto; }
+
+    @media (max-width: 860px) {
+      .wrap { flex-direction: column; }
+      .who { width: 100%; position: static; display: flex; gap: 20px; align-items: flex-start; }
+      .who img.avatar { width: 110px; }
+    }
+
+    /* ─── skeleton placeholders ─── */
+    @keyframes skel-shimmer {
+      0%   { background-position: -600px 0; }
+      100% { background-position:  600px 0; }
+    }
+    .skel {
+      border-radius: 2px;
+      background: linear-gradient(90deg,
+        var(--panel2) 25%,
+        color-mix(in srgb, var(--acc) 9%, var(--panel2)) 50%,
+        var(--panel2) 75%);
+      background-size: 1200px 100%;
+      animation: skel-shimmer 1.8s ease-in-out infinite;
+    }
+    #loading { display: flex; flex: 1; }
+    .skel-wrap {
+      width: 100%; max-width: 1400px; margin: 0 auto;
+      padding: 40px 34px 70px; display: flex; gap: 44px; align-items: flex-start;
+    }
+    .skel-sidebar { width: 280px; flex-shrink: 0; }
+    .skel-avatar { width: 100%; aspect-ratio: 1; }
+    .skel-decks { flex: 1; min-width: 0; }
+    .skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    .skel-card { border: 1px solid var(--line); background: var(--panel); }
+    .skel-thumb { width: 100%; padding-bottom: 56.25%; position: relative; }
+    .skel-thumb .skel { position: absolute; inset: 0; border-radius: 0; }
+    .skel-info { padding: 13px 16px 14px; border-top: 1px solid var(--line); }
+    @media (max-width: 860px) {
+      .skel-wrap { flex-direction: column; }
+      .skel-sidebar { width: 100%; display: flex; gap: 20px; align-items: flex-start; }
+      .skel-avatar { width: 110px; flex-shrink: 0; }
+      .skel-sidebar-text { flex: 1; min-width: 0; }
+      .skel-sidebar-text .skel:first-child { margin-top: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="bar">
+    <a class="wordmark" href="/"><img class="mark" src="/logo.png" alt=""><span>fslides</span></a>
+    <nav>
+      <a href="/docs/">docs</a>
+      <a href="/templates/">templates</a>
+      <span id="whoami"><img id="me-avatar" alt=""><span id="me-login"></span></span>
+      <button class="linkish" id="btn-signin" hidden>sign in</button>
+      <button id="theme-btn" title="toggle light/dark (auto-set by your local time)">:set bg?</button>
+    </nav>
+  </header>
+
+  <main class="wrap" id="main" hidden>
+    <aside class="who">
+      <img class="avatar" id="avatar" alt="">
+      <div>
+        <h1 id="name"></h1>
+        <div class="login mono" id="login"></div>
+        <p class="bio" id="bio"></p>
+        <div class="meta" id="meta"></div>
+        <a class="gh" id="gh-link" target="_blank" rel="noopener">github ↗</a>
+      </div>
+    </aside>
+    <section class="decks">
+      <h2>decks <span class="count" id="count"></span></h2>
+
+      <div class="toolbar" id="toolbar">
+        <input id="search" type="search" placeholder="/ find a deck" autocomplete="off">
+        <select id="visibility" hidden>
+          <option value="all">all</option>
+          <option value="public">public</option>
+          <option value="private">private</option>
+        </select>
+        <select id="sort">
+          <option value="updated">recent</option>
+          <option value="name">a→z</option>
+        </select>
+        <div class="seg">
+          <button id="view-grid"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="5.5" height="5.5" rx="1"/><rect x="9.5" y="1" width="5.5" height="5.5" rx="1"/><rect x="1" y="9.5" width="5.5" height="5.5" rx="1"/><rect x="9.5" y="9.5" width="5.5" height="5.5" rx="1"/></svg>grid</button>
+          <button id="view-list"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 4h12M2 8h12M2 12h12"/></svg>list</button>
+        </div>
+        <button class="cta-btn" id="btn-newdeck">+ new deck</button>
+      </div>
+
+      <div id="decks" class="grid"></div>
+      <div class="state" id="nomatch" hidden>no match</div>
+      <div class="state" id="empty" hidden>
+        <div class="big">no public decks yet</div>
+        <div>make one: <a href="/">curl -fsSL fslides.dev/new | sh -s -- my-deck</a></div>
+      </div>
+
+    </section>
+  </main>
+  <div id="loading">
+    <div class="skel-wrap">
+      <div class="skel-sidebar">
+        <div class="skel skel-avatar"></div>
+        <div class="skel-sidebar-text">
+          <div class="skel" style="height:28px; width:65%; margin-top:18px; margin-bottom:8px;"></div>
+          <div class="skel" style="height:14px; width:40%; margin-bottom:14px;"></div>
+          <div class="skel" style="height:13px; width:90%; margin-bottom:6px;"></div>
+          <div class="skel" style="height:13px; width:75%; margin-bottom:16px;"></div>
+          <div class="skel" style="height:12px; width:55%; margin-bottom:7px;"></div>
+          <div class="skel" style="height:12px; width:50%; margin-bottom:7px;"></div>
+          <div class="skel" style="height:12px; width:45%; margin-bottom:18px;"></div>
+          <div class="skel" style="height:32px; width:120px;"></div>
+        </div>
+      </div>
+      <div class="skel-decks">
+        <div class="skel" style="height:18px; width:160px; margin-bottom:28px;"></div>
+        <div class="skel-grid">
+          <div class="skel-card">
+            <div class="skel-thumb"><div class="skel"></div></div>
+            <div class="skel-info">
+              <div class="skel" style="height:16px; width:70%; margin-bottom:8px;"></div>
+              <div class="skel" style="height:13px; width:90%; margin-bottom:5px;"></div>
+              <div class="skel" style="height:13px; width:60%; margin-bottom:12px;"></div>
+              <div class="skel" style="height:12px; width:45%;"></div>
+            </div>
+          </div>
+          <div class="skel-card">
+            <div class="skel-thumb"><div class="skel"></div></div>
+            <div class="skel-info">
+              <div class="skel" style="height:16px; width:55%; margin-bottom:8px;"></div>
+              <div class="skel" style="height:13px; width:85%; margin-bottom:5px;"></div>
+              <div class="skel" style="height:13px; width:70%; margin-bottom:12px;"></div>
+              <div class="skel" style="height:12px; width:40%;"></div>
+            </div>
+          </div>
+          <div class="skel-card">
+            <div class="skel-thumb"><div class="skel"></div></div>
+            <div class="skel-info">
+              <div class="skel" style="height:16px; width:80%; margin-bottom:8px;"></div>
+              <div class="skel" style="height:13px; width:95%; margin-bottom:5px;"></div>
+              <div class="skel" style="height:13px; width:50%; margin-bottom:12px;"></div>
+              <div class="skel" style="height:12px; width:35%;"></div>
+            </div>
+          </div>
+          <div class="skel-card">
+            <div class="skel-thumb"><div class="skel"></div></div>
+            <div class="skel-info">
+              <div class="skel" style="height:16px; width:60%; margin-bottom:8px;"></div>
+              <div class="skel" style="height:13px; width:80%; margin-bottom:5px;"></div>
+              <div class="skel" style="height:13px; width:65%; margin-bottom:12px;"></div>
+              <div class="skel" style="height:12px; width:50%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="notfound" hidden style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; position:relative; overflow:hidden; padding:20px;">
+    <div style="font-family:'JetBrains Mono',monospace; font-size:clamp(4rem,14vw,9rem); font-weight:700; line-height:1; z-index:2;">4<span style="display:inline-block; color:var(--acc); transform:rotate(14deg) translate(4px,0); transform-origin:50% 92%;">0</span>4</div>
+    <svg viewBox="0 0 560 180" style="position:absolute; width:min(38vw,440px); right:max(10vw,calc(50% - 380px)); bottom:47%; transform:rotate(-42deg); transform-origin:8% 92%; z-index:1;" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="wood2" x1="0" y1="60" x2="0" y2="120" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#b05a1e"/><stop offset="0.45" stop-color="#8a4318"/><stop offset="1" stop-color="#5f2c0e"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="30" cy="90" rx="14" ry="26" fill="#7a3a12"/>
+      <path d="M38 82 L200 78 C300 72 430 58 522 62 C544 63 552 74 552 90 C552 106 544 117 522 118 C430 122 300 108 200 102 L38 98 Z" fill="url(#wood2)"/>
+      <g stroke="#6d6f76" stroke-width="3.4" stroke-linecap="round" fill="none">
+        <path d="M318 62 C306 82 310 100 326 112"/><path d="M326 112 C344 96 344 76 330 61"/>
+        <path d="M368 60 C356 80 360 100 376 114"/><path d="M376 114 C394 98 394 76 380 59"/>
+        <path d="M420 58 C408 78 412 100 428 116"/><path d="M428 116 C446 100 446 76 432 58"/>
+        <path d="M472 58 C460 78 464 100 480 116"/><path d="M480 116 C498 100 498 78 484 58"/>
+        <path d="M310 70 C370 62 460 60 540 70"/><path d="M316 104 C380 114 470 116 544 104"/>
+      </g>
+      <g stroke="#84868e" stroke-width="2.6" stroke-linecap="round">
+        <path d="M322 58 l-7 -9 M322 58 l9 -7"/><path d="M424 54 l-7 -9 M424 54 l9 -7"/>
+        <path d="M330 116 l-8 8 M330 116 l8 8"/><path d="M434 120 l-8 8 M434 120 l8 8"/>
+      </g>
+    </svg>
+    <div style="font-family:'JetBrains Mono',monospace; font-size:clamp(0.9rem,2vw,1.05rem); line-height:1.9; color:var(--dim); z-index:2; text-align:left;">
+      <div><span style="color:var(--acc)">$</span> fslides who <span id="nf-login"></span></div>
+      <div><span style="color:var(--acc-hi)">error 404:</span> no GitHub account by that name — so no decks to swing at.</div>
+      <div style="color:var(--faint)"># check the spelling, or claim it: github.com/signup</div>
+    </div>
+    <div style="display:flex; gap:14px; z-index:2; font-family:'JetBrains Mono',monospace;">
+      <a href="/" style="font-size:0.95rem; color:var(--dim); border:1px solid var(--line); padding:10px 18px;"><span style="color:var(--acc)">[</span> ← home <span style="color:var(--acc)">]</span></a>
+    </div>
+  </div>
+
+  <div id="share-pop" hidden></div>
+
+  <footer class="statusline">
+    <span class="mode">PROFILE</span>
+    <span id="status-user"></span>
+    <span class="right"><a href="/-/report" style="color: inherit; text-decoration: underline;">report abuse</a> · decks render live from GitHub · api <span id="sl-api">…</span> · <span id="clock"></span></span>
+  </footer>
+
+<script>
+(function () {
+  var GATEWAY = 'https://api.fslides.dev';
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ── theme: follow the viewer's clock, remember an explicit choice ──
+  var saved = null; try { saved = localStorage.getItem('fs-theme'); } catch (_) {}
+  var hour = new Date().getHours();
+  var theme = saved || ((hour >= 7 && hour < 19) ? 'light' : 'dark');
+  document.documentElement.setAttribute('data-theme', theme);
+  $('theme-btn').addEventListener('click', function () {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('fs-theme', theme); } catch (_) {}
+  });
+
+  var profileLogin = location.pathname.split('/').filter(Boolean)[0];
+  document.title = profileLogin + ' — fslides';
+  $('status-user').textContent = 'fslides.dev/' + profileLogin;
+  $('clock').textContent = String(hour).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0');
+  fetch(GATEWAY + '/healthz').then(function (r) { $('sl-api').textContent = r.ok ? 'ok' : 'down'; })
+    .catch(function () { $('sl-api').textContent = 'down'; });
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function ago(iso) {
+    var d = (Date.now() - new Date(iso)) / 864e5;
+    if (d < 1) return 'today'; if (d < 2) return 'yesterday';
+    if (d < 30) return Math.floor(d) + 'd ago'; if (d < 365) return Math.floor(d / 30) + 'mo ago';
+    return Math.floor(d / 365) + 'y ago';
+  }
+  function token() {
+    try {
+      var exp = parseInt(localStorage.getItem('fs-gh-token-exp') || '0', 10);
+      if (exp && Date.now() > exp) return '';
+      return localStorage.getItem('fs-gh-token') || '';
+    } catch (_) { return ''; }
+  }
+  function gh(path, tok) {
+    var h = { Accept: 'application/vnd.github+json' };
+    if (tok) h.Authorization = 'Bearer ' + tok;
+    return fetch('https://api.github.com' + path, { headers: h })
+      .then(function (r) { if (!r.ok) throw new Error('gh ' + r.status); return r.json(); });
+  }
+
+  // ── sign-in (one popup; the app grant is issues-only) ──
+  $('btn-signin').addEventListener('click', function () {
+    var w = 640, h = 780, x = (screen.width - w) / 2, y = (screen.height - h) / 2;
+    window.open(GATEWAY + '/auth/login?origin=' + encodeURIComponent(location.origin) + '&t=' + Date.now(),
+      'fslides-auth', 'width=' + w + ',height=' + h + ',left=' + x + ',top=' + y);
+  });
+  window.addEventListener('message', function (e) {
+    if (e.origin !== new URL(GATEWAY).origin || !e.data || e.data.type !== 'fslides-auth') return;
+    try {
+      localStorage.setItem('fs-gh-token', e.data.token);
+      localStorage.setItem('fs-gh-token-exp', String(e.data.expiresAt || 0));
+    } catch (_) {}
+    bootViewer();
+  });
+
+  // ── decks state + render (search / filter / sort / grid|list) ──
+  var allDecks = [], ownerMode = false, ownerTok = '';
+  var view = 'grid'; try { view = localStorage.getItem('fs-dash-view') || 'grid'; } catch (_) {}
+
+  function setView(v) {
+    view = v; try { localStorage.setItem('fs-dash-view', v); } catch (_) {}
+    $('view-grid').classList.toggle('active', v === 'grid');
+    $('view-list').classList.toggle('active', v === 'list');
+    render();
+  }
+  $('view-grid').addEventListener('click', function () { setView('grid'); });
+  $('view-list').addEventListener('click', function () { setView('list'); });
+  $('search').addEventListener('input', render);
+  $('visibility').addEventListener('change', render);
+  $('sort').addEventListener('change', render);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '/' && document.activeElement !== $('search')) { e.preventDefault(); $('search').focus(); }
+    if (e.key === 'Escape' && document.activeElement === $('search')) $('search').blur();
+  });
+
+  // a full 1280px slide shrunk to card width makes 48px titles ~12px —
+  // instead crop to the slide's central region so preview text stays readable
+  var THUMB_VIRT = 780;
+  function scaleThumbs() {
+    document.querySelectorAll('.thumb').forEach(function (t) {
+      var f = t.querySelector('iframe');
+      if (!f) return;
+      var w = t.offsetWidth, h = t.offsetHeight || w * 0.5625;
+      var sc = w / THUMB_VIRT;
+      f.style.transform = 'scale(' + sc + ')';
+      f.style.left = (-(1280 * sc - w) / 2) + 'px';
+      f.style.top = (-(720 * sc - h) / 2) + 'px';
+    });
+  }
+  window.addEventListener('resize', scaleThumbs);
+
+  function render() {
+    var q = $('search').value.trim().toLowerCase();
+    var vis = $('visibility').value;
+    var sort = $('sort').value;
+    var decks = allDecks.filter(function (r) {
+      return (!q || r.name.toLowerCase().indexOf(q) !== -1 || (r.description || '').toLowerCase().indexOf(q) !== -1) &&
+        (vis === 'all' || (vis === 'private') === !!r.private);
+    });
+    decks.sort(sort === 'name'
+      ? function (a, b) { return a.name.localeCompare(b.name); }
+      : function (a, b) { return new Date(b.pushed_at) - new Date(a.pushed_at); });
+
+    $('count').textContent = allDecks.length
+      ? (decks.length === allDecks.length ? '(' + allDecks.length + ')' : '(' + decks.length + '/' + allDecks.length + ')')
+      : '';
+    $('nomatch').hidden = !(allDecks.length && !decks.length);
+    $('empty').hidden = !!allDecks.length;
+    $('toolbar').style.display = allDecks.length ? 'flex' : 'none';
+
+    var box = $('decks');
+    box.className = view === 'list' ? 'rows' : 'grid';
+    box.innerHTML = '';
+    decks.forEach(function (r) {
+      var repoN = r._repoName || r.name;
+      var deckPath = r._deckPath || '';
+      var url = 'https://' + r.owner.login.toLowerCase() + '.fslides.dev/' + repoN + '/' + (deckPath ? deckPath + '/' : '');
+      var a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      var priv = r.private ? '<span class="chip">private</span>' : '';
+      var IC = {
+        fork: '<svg viewBox="0 0 16 16"><path d="M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/></svg>',
+        star: '<svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>',
+        comment: '<svg viewBox="0 0 16 16"><path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Z"/></svg>',
+        people: '<svg viewBox="0 0 16 16"><path d="M2 5.5a3.5 3.5 0 1 1 5.898 2.549 5.508 5.508 0 0 1 3.034 4.084.75.75 0 1 1-1.482.235 4 4 0 0 0-7.9 0 .75.75 0 0 1-1.482-.236A5.507 5.507 0 0 1 3.102 8.05 3.493 3.493 0 0 1 2 5.5ZM11 4a3.001 3.001 0 0 1 2.22 5.018 5.01 5.01 0 0 1 2.56 3.012.749.749 0 0 1-.885.954.752.752 0 0 1-.549-.514 3.507 3.507 0 0 0-2.522-2.372.75.75 0 0 1-.574-.73v-.352a.75.75 0 0 1 .416-.672A1.5 1.5 0 0 0 11 5.5.75.75 0 0 1 11 4Z"/></svg>',
+      };
+      var stats = '<span class="stats">' +
+        '<span title="forks">' + IC.fork + (r.forks_count || 0) + '</span>' +
+        '<span title="stars">' + IC.star + (r.stargazers_count || 0) + '</span>' +
+        '<span title="open comment threads">' + IC.comment + (r.open_issues_count || 0) + '</span>' +
+        (r._collabs != null ? '<span title="shared with">' + IC.people + r._collabs + '</span>' : '') +
+        '</span>';
+      var share = ownerMode ? '<button class="sharebtn" data-repo="' + esc(r.full_name) + '">share</button>' : '';
+      if (view === 'grid') {
+        a.className = 'card';
+        var thumb = r.private
+          ? '<div class="thumb lock">🔒 private — opens with GitHub sign-in</div>'
+          : '<div class="thumb"><iframe loading="lazy" scrolling="no" tabindex="-1"></iframe></div>';
+        a.innerHTML = thumb +
+          '<div class="info"><div class="head"><div class="name"></div>' + priv + share + '</div>' +
+          (r.description ? '<div class="desc">' + esc(r.description) + '</div>' : '') +
+          '<div class="foot">' + stats + '<span class="when">pushed ' + ago(r.pushed_at) + '</span></div></div>';
+        if (!r.private) a.querySelector('iframe').src = url + '#0';
+      } else {
+        a.className = 'row';
+        a.innerHTML = '<span class="name"></span>' + priv + stats + '<span class="when">' + ago(r.pushed_at) + '</span>' + share;
+      }
+      a.querySelector('.name').textContent = r.name;
+      var sb = a.querySelector('.sharebtn');
+      if (sb) sb.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); openShare(r, sb); });
+      box.appendChild(a);
+    });
+    if (view === 'grid') { scaleThumbs(); setTimeout(scaleThumbs, 300); }
+  }
+
+  function setDecks(decks) {
+    allDecks = decks;
+    var m = document.querySelector('#meta .deck-count');
+    if (m) m.innerHTML = '<b>' + decks.length + '</b> deck' + (decks.length === 1 ? '' : 's');
+    setView(view);
+  }
+
+  // ── the profile (public, works signed-out for any user) ──
+  Promise.all([
+    gh('/users/' + encodeURIComponent(profileLogin)).catch(function () { return null; }),
+    gh('/search/repositories?q=user:' + encodeURIComponent(profileLogin) + '+topic:fslides&sort=updated&per_page=100')
+      .catch(function () { return { items: [] }; }),
+  ]).then(function (res) {
+    var user = res[0], topicRepos = (res[1].items || []).filter(function (r) { return !r.private; });
+    if (!user) {
+      $('loading').hidden = true;
+      $('nf-login').textContent = '@' + profileLogin;
+      document.title = '404 — fslides';
+      $('notfound').hidden = false;
+      return;
+    }
+    // Expand monorepo repos before rendering (manifest probes run in parallel)
+    return Promise.all(topicRepos.map(function (r) { return getRepoDecks(r); }))
+      .then(function (groups) {
+        var pub = [].concat.apply([], groups);
+        $('loading').hidden = true;
+        $('main').hidden = false;
+        $('avatar').src = user.avatar_url;
+        $('name').textContent = user.name || user.login;
+        $('login').textContent = '@' + user.login;
+        $('bio').textContent = user.bio || '';
+        $('gh-link').href = user.html_url;
+        var meta = ['<div class="deck-count"><b>' + pub.length + '</b> deck' + (pub.length === 1 ? '' : 's') + '</div>'];
+        if (user.followers != null) meta.push('<div><b>' + user.followers + '</b> followers</div>');
+        if (user.location) meta.push('<div>' + esc(user.location) + '</div>');
+        $('meta').innerHTML = meta.join('');
+        setDecks(pub);
+        bootViewer();
+      });
+  });
+
+  // ── viewer identity: on your own profile, this page IS the dashboard ──
+  function bootViewer() {
+    var tok = token();
+    if (!tok) { $('btn-signin').hidden = false; return; }
+    gh('/user', tok).then(function (me) {
+      $('btn-signin').hidden = true;
+      $('me-avatar').src = me.avatar_url;
+      $('me-login').textContent = me.login;
+      var chip = $('me-login').parentElement;
+      chip.style.display = 'inline-flex';
+      chip.style.cursor = 'pointer';
+      chip.onclick = function (e) {
+        e.stopPropagation();
+        var m = $('acct-menu');
+        if (m) { m.remove(); return; }
+        m = document.createElement('div');
+        m.id = 'acct-menu';
+        m.style.cssText = 'position:fixed; top:46px; right:14px; z-index:300; min-width:210px;' +
+          'background:var(--panel); border:1px solid var(--line); box-shadow:0 16px 44px rgba(0,0,0,0.35);' +
+          "font-family:'JetBrains Mono',monospace; font-size:0.88rem;";
+        m.innerHTML = '<div style="padding:10px 14px; color:var(--faint); border-bottom:1px solid var(--line);">signed in as <b style="color:var(--fg); display:block;">@' + esc(me.login) + '</b></div>' +
+          '<a href="/' + esc(me.login) + '" style="display:block; padding:9px 14px; color:var(--fg);">~/decks — your profile</a>' +
+          '<a href="' + esc(me.html_url) + '" target="_blank" rel="noopener" style="display:block; padding:9px 14px; color:var(--fg);">github ↗</a>' +
+          '<button id="acct-out" style="display:block; width:100%; text-align:left; padding:9px 14px; color:var(--fg); background:none; border:none; cursor:pointer; font-family:inherit; font-size:inherit;">sign out</button>';
+        document.body.appendChild(m);
+        m.querySelector('#acct-out').addEventListener('click', function () {
+          try { localStorage.removeItem('fs-gh-token'); localStorage.removeItem('fs-gh-token-exp'); } catch (_) {}
+          location.reload();
+        });
+        document.addEventListener('click', function closer(ev) {
+          if (!m.contains(ev.target) && !chip.contains(ev.target)) { m.remove(); document.removeEventListener('click', closer); }
+        });
+      };
+      if (me.login.toLowerCase() !== profileLogin.toLowerCase()) return;
+
+      ownerMode = true;
+      ownerTok = tok;
+      $('visibility').hidden = false;
+      loadOwnerDecks(tok);
+    }).catch(function () { $('btn-signin').hidden = false; });
+  }
+
+  // Returns Promise<Array> of deck entries for a repo.
+  // Each entry: { ...repo_props, _repoName, _deckPath, name }
+  // Single-deck repos yield [one entry]; monorepo manifest repos yield N entries.
+  function getRepoDecks(r) {
+    var rawBase = 'https://raw.githubusercontent.com/' + r.owner.login + '/' + r.name + '/HEAD/';
+
+    function makeEntry(deckPath) {
+      var dp = deckPath ? deckPath.split('/').filter(Boolean).join('/') : '';
+      var entry = {};
+      for (var k in r) { if (Object.prototype.hasOwnProperty.call(r, k)) entry[k] = r[k]; }
+      entry._repoName = r.name;
+      entry._deckPath = dp;
+      entry.name = dp ? dp.split('/').pop() : r.name;
+      return entry;
+    }
+
+    function probeManifest() {
+      return fetch(rawBase + '.fslides')
+        .then(function (resp) {
+          if (!resp.ok) return null;
+          return resp.text().then(function (text) {
+            try { return JSON.parse(text); } catch (_) { return null; }
+          });
+        }).catch(function () { return null; });
+    }
+
+    function expandManifest(manifest) {
+      if (!manifest || !Array.isArray(manifest.decks) || manifest.decks.length === 0) return null;
+      return manifest.decks.map(function (dp) { return makeEntry(dp); });
+    }
+
+    var hasTopic = (r.topics || []).indexOf('fslides') !== -1;
+
+    if (hasTopic) {
+      return probeManifest().then(function (manifest) {
+        return expandManifest(manifest) || [makeEntry('')];
+      });
+    }
+
+    if (r.private) return Promise.resolve([]);
+
+    // Public, no topic: probe root config + manifest in parallel
+    var checkRoot = Promise.all(
+      ['fslides.config.js', 'fuckslides.config.js'].map(function (f) {
+        return fetch(rawBase + f, { method: 'HEAD' })
+          .then(function (resp) { return resp.ok; }).catch(function () { return false; });
+      })
+    ).then(function (ok) { return ok[0] || ok[1]; });
+
+    return Promise.all([checkRoot, probeManifest()]).then(function (res) {
+      var hasRoot = res[0], manifest = res[1];
+      return expandManifest(manifest) || (hasRoot ? [makeEntry('')] : []);
+    });
+  }
+
+  // ── + new deck: same contextual menu as the landing's CTA ──
+  var NEW_DECK = [
+    { cmd: 'curl -fsSL fslides.dev/new | sh -s -- my-deck', note: 'you drive' },
+    { cmd: '/plugin marketplace add fslides/fslides', note: 'your agent drives' },
+  ];
+  $('btn-newdeck').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var m = document.getElementById('cta-menu');
+    if (m) { m.remove(); return; }
+    m = document.createElement('div');
+    m.id = 'cta-menu';
+    m.innerHTML = '<div class="head">create a deck — click a line to copy</div>';
+    NEW_DECK.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = '<span class="cmd' + (item.cmd.charAt(0) === '/' ? ' nodollar' : '') + '"></span><span class="lbl"></span><span class="cpy">copy</span>';
+      row.querySelector('.cmd').textContent = item.cmd;
+      row.querySelector('.lbl').textContent = item.note;
+      row.addEventListener('click', function () {
+        navigator.clipboard.writeText(item.cmd).then(function () {
+          row.classList.add('copied');
+          row.querySelector('.cpy').textContent = 'copied ✓';
+          setTimeout(function () { row.classList.remove('copied'); row.querySelector('.cpy').textContent = 'copy'; }, 1600);
+        });
+      });
+      m.appendChild(row);
+    });
+    var b = e.currentTarget.getBoundingClientRect();
+    m.style.top = (b.bottom + window.scrollY + 8) + 'px';
+    m.style.left = Math.max(10, Math.min(b.right + window.scrollX - 480, window.innerWidth - 494)) + 'px';
+    document.body.appendChild(m);
+    document.addEventListener('click', function closer(ev) {
+      if (!m.contains(ev.target)) { m.remove(); document.removeEventListener('click', closer); }
+    });
+  });
+
+  // ── share: copy the link; invite/remove people — GitHub's ACL underneath.
+  // view = pull, edit = push. Managing people needs the app's
+  // Administration permission; without it the list gracefully degrades to
+  // the manage-on-GitHub link.
+  function ghApi(method, path, tok, body) {
+    return fetch('https://api.github.com' + path, {
+      method: method,
+      headers: { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  function openShare(r, anchor) {
+    var pop = $('share-pop');
+    var repoN = r._repoName || r.name;
+    var deckPath = r._deckPath || '';
+    var url = 'https://' + r.owner.login.toLowerCase() + '.fslides.dev/' + repoN + '/' + (deckPath ? deckPath + '/' : '');
+    pop.innerHTML = '<h4>share ' + esc(r.name) + '</h4>' +
+      '<div class="linkrow"><input readonly value="' + esc(url) + '"><button class="copy">copy</button></div>' +
+      (r.private
+        ? '<div class="hint">this deck is <b>private</b> — people below can view it here after a GitHub sign-in.</div>'
+        : '<div class="hint">this deck is <b>public</b> — anyone with the link can view. Invites below grant <b>edit</b>-level access too.</div>') +
+      '<div class="people"><div class="hint">loading people…</div></div>' +
+      '<div class="inviterow"><input placeholder="github username" spellcheck="false">' +
+      '<select><option value="pull">view</option><option value="push">edit</option></select>' +
+      '<button class="inv">invite</button></div>' +
+      '<div class="err" hidden></div>' +
+      '<a href="https://github.com/' + esc(r.full_name) + '/settings/access" target="_blank" rel="noopener">manage on GitHub ↗</a>';
+    pop.hidden = false;
+    var rect = anchor.getBoundingClientRect();
+    pop.style.left = Math.max(10, Math.min(window.innerWidth - 360, rect.left + window.scrollX - 300)) + 'px';
+    pop.style.top = (rect.bottom + window.scrollY + 8) + 'px';
+    pop.querySelector('.copy').addEventListener('click', function () {
+      navigator.clipboard.writeText(url);
+      pop.querySelector('.copy').textContent = 'copied ✓';
+    });
+
+    var errEl = pop.querySelector('.err');
+    function fail(msg) { errEl.textContent = msg; errEl.hidden = false; }
+
+    function loadPeople() {
+      errEl.hidden = true;
+      Promise.all([
+        ghApi('GET', '/repos/' + r.full_name + '/collaborators?affiliation=direct&per_page=100', ownerTok)
+          .then(function (x) { return x.ok ? x.json() : null; }),
+        ghApi('GET', '/repos/' + r.full_name + '/invitations?per_page=100', ownerTok)
+          .then(function (x) { return x.ok ? x.json() : []; }).catch(function () { return []; }),
+      ]).then(function (res) {
+        var box = pop.querySelector('.people');
+        if (!res[0]) {
+          box.innerHTML = '<div class="hint">people management needs the app\u2019s <b>Administration</b> permission \u2014 use the GitHub link below meanwhile.</div>';
+          return;
+        }
+        var collabs = res[0].filter(function (c) { return c.login !== r.owner.login; });
+        var invites = res[1] || [];
+        r._collabs = collabs.length + invites.length;
+        box.innerHTML = '';
+        if (!collabs.length && !invites.length) {
+          box.innerHTML = '<div class="hint">not shared with anyone yet</div>';
+        }
+        collabs.forEach(function (c) {
+          var row = document.createElement('div');
+          row.className = 'person';
+          row.innerHTML = '<img src="' + esc(c.avatar_url) + '"><span class="who">' + esc(c.login) + '</span>' +
+            '<select><option value="pull">view</option><option value="push">edit</option></select>' +
+            '<button class="rm" title="remove">×</button>';
+          row.querySelector('select').value = (c.permissions && c.permissions.push) ? 'push' : 'pull';
+          row.querySelector('select').addEventListener('change', function (e) {
+            ghApi('PUT', '/repos/' + r.full_name + '/collaborators/' + c.login, ownerTok, { permission: e.target.value })
+              .then(function (x) { if (!x.ok) fail('could not change role (' + x.status + ')'); });
+          });
+          row.querySelector('.rm').addEventListener('click', function () {
+            ghApi('DELETE', '/repos/' + r.full_name + '/collaborators/' + c.login, ownerTok)
+              .then(function (x) { x.ok ? loadPeople() : fail('could not remove (' + x.status + ')'); });
+          });
+          box.appendChild(row);
+        });
+        invites.forEach(function (inv) {
+          var row = document.createElement('div');
+          row.className = 'person';
+          row.innerHTML = '<img src="' + esc(inv.invitee && inv.invitee.avatar_url || '') + '">' +
+            '<span class="who">' + esc(inv.invitee && inv.invitee.login || '?') + '</span>' +
+            '<span class="pending">invited · pending</span>' +
+            '<button class="rm" title="cancel invite">×</button>';
+          row.querySelector('.rm').addEventListener('click', function () {
+            ghApi('DELETE', '/repos/' + r.full_name + '/invitations/' + inv.id, ownerTok)
+              .then(function (x) { x.ok ? loadPeople() : fail('could not cancel (' + x.status + ')'); });
+          });
+          box.appendChild(row);
+        });
+        render();
+      });
+    }
+    loadPeople();
+
+    var invBtn = pop.querySelector('.inv');
+    var invInp = pop.querySelector('.inviterow input');
+    function doInvite() {
+      var who = invInp.value.trim().replace(/^@/, '');
+      if (!who) return;
+      invBtn.textContent = '…';
+      ghApi('PUT', '/repos/' + r.full_name + '/collaborators/' + encodeURIComponent(who), ownerTok,
+        { permission: pop.querySelector('.inviterow select').value })
+        .then(function (x) {
+          invBtn.textContent = 'invite';
+          if (x.status === 201 || x.status === 204) { invInp.value = ''; loadPeople(); }
+          else if (x.status === 404) fail('no such GitHub user: ' + who);
+          else if (x.status === 403) fail('not allowed — the app needs the Administration permission');
+          else fail('invite failed (' + x.status + ')');
+        });
+    }
+    invBtn.addEventListener('click', doInvite);
+    invInp.addEventListener('keydown', function (e) { if (e.key === 'Enter') doInvite(); });
+    invInp.focus();
+  }
+  document.addEventListener('click', function (e) {
+    var pop = $('share-pop');
+    if (!pop.hidden && !pop.contains(e.target) && !e.target.classList.contains('sharebtn')) pop.hidden = true;
+  });
+
+  // shared-with counts: collaborator totals from the Link header (1 call/deck)
+  function loadCollabCounts(decks, tok) {
+    decks.forEach(function (r) {
+      fetch('https://api.github.com/repos/' + r.full_name + '/collaborators?per_page=1', {
+        headers: { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json' },
+      }).then(function (resp) {
+        if (!resp.ok) return;
+        var m = (resp.headers.get('Link') || '').match(/page=(\d+)>; rel="last"/);
+        var total = m ? parseInt(m[1], 10) : 1;
+        r._collabs = Math.max(0, total - 1); // minus yourself
+        render();
+      }).catch(function () {});
+    });
+  }
+
+  // owner view: app installations see private repos too (issues-only grant)
+  function loadOwnerDecks(tok) {
+    gh('/user/installations', tok).then(function (insts) {
+      var jobs = (insts.installations || []).map(function (inst) {
+        var all = [];
+        function page(n) {
+          return gh('/user/installations/' + inst.id + '/repositories?per_page=100&page=' + n, tok)
+            .then(function (rs) {
+              all = all.concat(rs.repositories || []);
+              return (rs.repositories || []).length === 100 && n < 10 ? page(n + 1) : all;
+            });
+        }
+        return page(1);
+      });
+      return Promise.all(jobs);
+    }).then(function (lists) {
+      var repos = [].concat.apply([], lists);
+      return Promise.all(repos.map(function (r) { return getRepoDecks(r); })).then(function (groups) {
+        return [].concat.apply([], groups);
+      });
+    }).then(function (decks) {
+      // owner list supersedes the public one (it includes private decks)
+      if (decks.length || allDecks.length === 0) setDecks(decks);
+      loadCollabCounts(decks, tok);
+    }).catch(function () { /* public view stays */ });
+  }
+})();
+</script>
+</body>
+</html>

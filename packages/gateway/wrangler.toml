@@ -1,0 +1,20 @@
+name = "fslides-gateway"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+# Explicit zone route so the gateway wins over the site worker's *.fslides.dev/*
+# wildcard (Cloudflare zone routes beat custom domains; this pins the gateway).
+routes = [
+  { pattern = "api.fslides.dev/*", zone_name = "fslides.dev" },
+  { pattern = "api.fslides.dev", custom_domain = true }
+]
+
+# Non-secret config
+[vars]
+ALLOWED_ORIGIN_SUFFIXES = ".github.io,fslides.dev,localhost,127.0.0.1"
+OAUTH_CLIENT_ID = "Ov23liTBpJrvbFFyAelL"  # classic OAuth App (one-click private-deck sign-in)
+
+# Secrets (set with `wrangler secret put <NAME>`):
+#   GITHUB_CLIENT_ID      — from the "fslides" GitHub App
+#   GITHUB_CLIENT_SECRET  — from the "fslides" GitHub App
+#   OAUTH_CLIENT_SECRET   — from the classic OAuth App (repo scope; one-click private-deck sign-in)
