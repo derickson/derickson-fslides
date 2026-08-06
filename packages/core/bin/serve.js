@@ -25,6 +25,16 @@ module.exports = function serve(config) {
 
   const escapeHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+  // Detect GitHub repo once at startup (used by comment API routes)
+  let repo = config.repo || null;
+  if (!repo) {
+    try {
+      const remote = execSync('git remote get-url origin', { cwd, encoding: 'utf8', stdio: 'pipe' }).trim();
+      const m = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
+      if (m) repo = m[1] + '/' + m[2];
+    } catch (_) {}
+  }
+
   // Rebuild the injected player HTML from current config (called on hot-reload too)
   let slidesJson, playerHtml;
   function buildPlayer() {
@@ -33,14 +43,6 @@ module.exports = function serve(config) {
     const nameJson     = JSON.stringify(config.name || 'presentation');
     const titleJson    = JSON.stringify(config.title || config.name || 'presentation');
     const disabledJson = JSON.stringify(config.disabled || []);
-    let repo = config.repo || null;
-    if (!repo) {
-      try {
-        const remote = execSync('git remote get-url origin', { cwd, encoding: 'utf8', stdio: 'pipe' }).trim();
-        const m = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
-        if (m) repo = m[1] + '/' + m[2];
-      } catch (_) {}
-    }
     const configSnippet = `<script>
 window.FUCKSLIDES_SLIDES    = ${slidesJson};
 window.FUCKSLIDES_LABELS    = ${labelsJson};

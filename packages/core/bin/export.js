@@ -109,7 +109,7 @@ module.exports = async function exportPresentation(config, outputPath) {
   let html = fs.readFileSync(path.join(pkgDir, 'player.html'), 'utf8');
 
   // Set browser tab title from config (mirrors serve.js behaviour)
-  const deckTitle = (config.title || config.name || 'fuckSlides')
+  const deckTitle = (config.title || config.name || 'Presentation')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${deckTitle}</title>`);
 
