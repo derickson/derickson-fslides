@@ -61,19 +61,24 @@ module.exports = async function exportPresentation(config, outputPath) {
   const pkgDir   = path.join(__dirname, '..');
   const out      = outputPath || path.join(cwd, (config.name || 'presentation') + '.html');
 
-  // Read all slide HTML and inline their local assets
+  // Inline fuckslides.js (must be read before slide loop so it can be inlined into each slide)
+  const fsJsPath = path.join(pkgDir, 'js', 'fuckslides.js');
+  const fsJs = fs.existsSync(fsJsPath) ? fs.readFileSync(fsJsPath, 'utf8') : '';
+
+  // Read all slide HTML and inline their local assets + fuckslides.js
+  // fuckslides.js uses an absolute src="/js/fuckslides.js" that won't resolve in a
+  // standalone srcdoc iframe — inline it here so the in-iframe keydown→postMessage
+  // forwarder actually runs and keyboard navigation works after clicking slide buttons.
   const slideContents = {};
   for (const slide of config.slides) {
     const p = path.join(slidesDir, slide);
     if (fs.existsSync(p)) {
       const raw = fs.readFileSync(p, 'utf8');
-      slideContents[slide] = inlineAssets(inlineIframes(raw, slidesDir), slidesDir);
+      let processed = inlineAssets(inlineIframes(raw, slidesDir), slidesDir);
+      if (fsJs) processed = processed.replace(/<script src="\/js\/fuckslides\.js"><\/script>/g, `<script>${fsJs}<\/script>`);
+      slideContents[slide] = processed;
     }
   }
-
-  // Inline fuckslides.js
-  const fsJsPath = path.join(pkgDir, 'js', 'fuckslides.js');
-  const fsJs = fs.existsSync(fsJsPath) ? fs.readFileSync(fsJsPath, 'utf8') : '';
 
   // Logo as base64 data URI
   const logoPath = path.join(pkgDir, 'logo.png');
@@ -83,6 +88,11 @@ module.exports = async function exportPresentation(config, outputPath) {
 
   // Read player template
   let html = fs.readFileSync(path.join(pkgDir, 'player.html'), 'utf8');
+
+  // Set browser tab title from config (mirrors serve.js behaviour)
+  const deckTitle = (config.title || config.name || 'fuckSlides')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${deckTitle}</title>`);
 
   function safeJson(val) {
     return JSON.stringify(val).replace(/<\/(script)/gi, '<\\/$1');
